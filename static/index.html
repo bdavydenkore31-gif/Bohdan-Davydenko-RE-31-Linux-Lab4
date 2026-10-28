@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SDR · Водопад</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1018;--panel:#101b27;--line:#233345;--text:#e5edf4;--muted:#91a7bb;--accent:#65e1c4}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}main{max-width:1440px;margin:auto;padding:28px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px}.eyebrow{color:var(--accent);font-size:11px;letter-spacing:2px}h1{font-size:28px;font-weight:600;margin:7px 0}p{color:var(--muted);margin:4px 0;line-height:1.5}.badge{border:1px solid var(--line);padding:8px 12px;border-radius:20px;white-space:nowrap;font-size:12px}.badge:before{content:'●';color:var(--accent);margin-right:8px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px}.stat{padding:16px}.stat span{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}.stat strong{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}.panel{padding:18px;margin-top:14px}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.panel-head b{font-size:15px;font-weight:500}.small{font-size:12px;color:var(--muted)}.toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted)}select,button{font:inherit;color:var(--text);background:#152637;border:1px solid #30475c;border-radius:7px;padding:9px 12px}button{cursor:pointer}button.primary{background:var(--accent);color:#08251f;border-color:var(--accent);min-width:105px;font-weight:600}button:disabled,select:disabled{opacity:.5;cursor:wait}.check{flex-direction:row;align-items:center;padding-bottom:9px;gap:6px}input{accent-color:var(--accent)}.seek{display:flex;align-items:center;gap:12px;margin-top:18px}.seek input{flex:1;min-width:40px}#clock{min-width:120px;text-align:right;font-variant-numeric:tabular-nums}.plot{position:relative;background:#050a12;border:1px solid #203246;border-radius:6px;overflow:hidden}.plot canvas{display:block;width:100%;height:170px}.water canvas{height:380px;image-rendering:pixelated}.axis{display:flex;justify-content:space-between;color:var(--muted);font:11px ui-monospace,monospace;padding:8px 0;gap:8px}.water-layout{display:grid;grid-template-columns:1fr 44px;gap:12px}.legend{background:linear-gradient(to top,#050a20,#183e95,#1aa9b7,#87df87,#ffdf70,#fff4e0);width:12px;border-radius:3px;height:100%;position:relative;margin-left:4px}.legend span{position:absolute;left:17px;font:10px ui-monospace,monospace;color:var(--muted)}.legend .top{top:0}.legend .bottom{bottom:0}.color-control{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px}.color-control label{min-width:170px;flex:1}.range-line{display:flex;align-items:center;gap:8px}.range-line input{width:100%}.range-line output{min-width:62px;text-align:right;font-variant-numeric:tabular-nums}.hover{position:absolute;top:10px;right:12px;background:#0b1420d9;padding:5px 8px;border-radius:4px;font:11px ui-monospace,monospace;pointer-events:none}.error{color:#ffbc9f;border:1px solid #734632;background:#2a1c1b;padding:12px;border-radius:8px;margin:12px 0;white-space:pre-wrap}.error[hidden]{display:none}footer{color:var(--muted);font-size:12px;line-height:1.6;padding:18px 0;overflow-wrap:anywhere}a{color:var(--accent)}@media(max-width:700px){main{padding:14px}header{align-items:start}.stats{grid-template-columns:repeat(2,1fr)}.stat strong{font-size:19px}.badge{font-size:10px}.panel{padding:12px}.axis{font-size:9px}.water canvas{height:310px}h1{font-size:25px}.toolbar{gap:9px}}
+
+.analysis-controls{display:flex;gap:14px;align-items:end;flex-wrap:wrap}.analysis-controls input[type=number]{width:100px;padding:9px;border:1px solid #30475c;border-radius:7px;background:#152637;color:var(--text);font:inherit}.analysis-table{overflow:auto;max-height:260px;margin-top:12px}table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px}th{color:var(--muted);font-weight:500}.analysis-stats{display:flex;gap:20px;flex-wrap:wrap;margin:16px 0;color:var(--muted);font-size:12px}.analysis-stats strong{color:var(--text)}#analysis-map{height:320px;image-rendering:pixelated}.analysis-note{font-size:12px;line-height:1.6;color:var(--muted);margin-top:12px}#analysis-output[hidden]{display:none}
+</style>
+</head>
+<body><main>
+<header><div><div class="eyebrow">SDR / АНАЛИЗ ЗАПИСИ</div><h1>Радиосигнал в деталях</h1><p>Спектр и водопад сырых I/Q-данных</p></div><div class="badge" id="status">Загрузка записи</div></header>
+<div id="error" class="error" role="alert" hidden></div>
+<div class="stats"><div class="stat"><span>Центральная частота</span><strong id="center">—</strong></div><div class="stat"><span>Полоса обзора</span><strong id="bandwidth">—</strong></div><div class="stat"><span>Длительность</span><strong id="duration">—</strong></div><div class="stat"><span>Разрешение FFT</span><strong id="resolution">—</strong></div></div>
+<section class="panel"><div class="toolbar">
+<button id="play" class="primary" disabled>▶ Старт</button><button id="restart" disabled>↺ В начало</button>
+<label>Размер FFT<select id="fft"><option>512</option><option>1024</option><option selected>2048</option><option>4096</option><option>8192</option></select></label>
+<label>Строк / с<select id="fps"><option>10</option><option>20</option><option selected>40</option><option>60</option></select></label>
+<label>Скорость<select id="speed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+<label class="check"><input type="checkbox" id="loop" checked>Повтор</label><label class="check"><input type="checkbox" id="dc">Убрать DC</label>
+</div><div class="seek"><label for="seek">Время</label><input id="seek" type="range" min="0" max="10" step="0.001" value="0" disabled><span id="clock">0,00 / 0,00 с</span></div></section>
+<section class="panel"><div class="panel-head"><b>Спектр</b><span id="peak" class="small">Мощность по частотным бинам · dBFS</span></div><div class="plot"><canvas id="spectrum" aria-label="Спектр сигнала"></canvas></div><div class="axis" id="spectrum-axis"></div></section>
+<section class="panel"><div class="panel-head"><b>Водопад</b><span id="history" class="small">Новые строки сверху · время записи</span></div><div class="water-layout"><div><div class="plot water"><canvas id="waterfall" aria-label="Водопад: частота по горизонтали, время по вертикали"></canvas><div class="hover" id="hover">Наведите курсор: частота / время</div></div><div class="axis" id="waterfall-axis"></div></div><div style="padding-bottom:29px"><div class="legend"><span class="top" id="legend-high">−20</span><span class="bottom" id="legend-low">−90</span></div></div></div>
+<div class="color-control"><label>Нижний уровень<div class="range-line"><input id="floor" type="range" min="-120" max="-31" value="-90"><output id="floor-value">−90 dBFS</output></div></label><label>Верхний уровень<div class="range-line"><input id="ceiling" type="range" min="-89" max="0" value="-20"><output id="ceiling-value">−20 dBFS</output></div></label></div>
+</section>
+<section class="panel" id="analysis-panel">
+<div class="panel-head"><b>2D-анализ · TensorFlow</b><span id="tf-status" class="small">Проверка TensorFlow…</span></div>
+<p class="small">Карта активности по времени и частоте. Выделение областей выше фона фиксированным 2D-фильтром; обученная модель не используется.</p>
+<div class="analysis-controls" style="margin-top:16px">
+<label>Начало, с<input id="analysis-start" type="number" min="0" step="0.05" value="0"></label>
+<label>Окно, с<input id="analysis-duration" type="number" min="0.05" max="12.8" step="0.05" value="10"></label>
+<label>Выше фона, дБ<input id="analysis-threshold" type="number" min="3" max="30" step="1" value="10"></label>
+<label>Мин. площадь, ячеек<input id="analysis-area" type="number" min="1" max="1000" step="1" value="12"></label>
+<label class="check"><input id="analysis-dc" type="checkbox">Убрать DC</label>
+<button class="primary" id="analyze" disabled>Анализировать</button>
+</div>
+<div class="error" id="analysis-error" hidden role="alert"></div>
+<p id="analysis-message" class="analysis-note">Первый запуск загружает TensorFlow и может занять некоторое время. Водопад работает независимо от анализа.</p>
+<div id="analysis-output" hidden>
+<div class="analysis-stats"><span>Выделено: <strong id="analysis-occupancy">—</strong></span><span>Областей: <strong id="analysis-regions">—</strong></span><span>Фон, медиана: <strong id="analysis-noise">—</strong></span><span>Ячейка: <strong id="analysis-cell">—</strong></span></div>
+<label class="check"><input id="analysis-mask" type="checkbox" checked>Затемнить фон и обвести найденные области</label>
+<div class="plot"><canvas id="analysis-map" aria-label="2D-анализ: частота по горизонтали, время сверху вниз"></canvas><div id="analysis-hover" class="hover">Время растёт сверху вниз · превышение фона 0…30 дБ</div></div>
+<div class="axis" id="analysis-axis"></div>
+<div class="analysis-table"><table><thead><tr><th>№</th><th>Время, с</th><th>Частота, МГц</th><th>Полоса, кГц</th><th>Пик выше фона, дБ</th></tr></thead><tbody id="analysis-body"></tbody></table></div>
+<p class="analysis-note">Рамка охватывает связную область. Порог влияет на её границы и оценку полосы. Результат не определяет тип модуляции и не подтверждает наличие конкретного передатчика.</p>
+</div></section><footer><span id="source">Источник: —</span><br>Воспроизведение файла, сохранённого SDR. Уровни относительно цифровой шкалы, без калибровки в dBm. <a href="/docs">API</a></footer>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), W=960, H=400, MAX_HISTORY=400;
+const water=$('waterfall'), ctx=water.getContext('2d',{alpha:false}), spectrum=$('spectrum'), sc=spectrum.getContext('2d',{alpha:false});
+water.width=W;water.height=H;spectrum.width=W;spectrum.height=170;
+const back=document.createElement('canvas');back.width=W;back.height=H;const bc=back.getContext('2d',{alpha:false});
+let info, fft=2048, fps=40, total=0, position=0, current=0, playing=false, ready=false, busy=false, generation=0, last=0;
+let chunks=new Map(), pending=new Map(), history=[], lut=[];
+const comma=(x,n=2)=>x.toFixed(n).replace('.',','), mhz=x=>comma(x/1e6,3)+' МГц';
+function report(error){$('error').textContent='Ошибка: '+error.message+' Проверьте сервер и нажмите «В начало» для повтора.';$('error').hidden=false;playing=false;update();}
+function update(){ $('play').textContent=playing?'❚❚ Пауза':'▶ Старт';$('status').textContent=busy?'Подготовка спектра':playing?'Воспроизведение':'Пауза';$('clock').textContent=comma(position)+' / '+comma(info?.duration_seconds||0)+' с';$('seek').value=position; }
+async function request(url){const response=await fetch(url);if(!response.ok)throw Error('HTTP '+response.status);return response;}
+async function chunkFor(row,gen=generation){
+ const start=Math.floor(row/128)*128;
+ if(chunks.has(start))return chunks.get(start);
+ if(pending.has(start))return pending.get(start);
+ const promise=(async()=>{const response=await request('/api/waterfall?'+new URLSearchParams({fft_size:fft,rows_per_second:fps,start,count:128,remove_dc:$('dc').checked}));const data=new Uint8Array(await response.arrayBuffer());if(gen!==generation)return null;if(data.length!==Number(response.headers.get('X-Rows'))*fft)throw Error('Неверный размер спектра');chunks.set(start,data);while(chunks.size>8)chunks.delete(chunks.keys().next().value);return data;})();
+ pending.set(start,promise);try{return await promise;}finally{if(gen===generation)pending.delete(start);}
+}
+async function rowAt(row,gen){const data=await chunkFor(row,gen);return data?data.subarray((row%128)*fft,(row%128+1)*fft):null;}
+function palette(){let low=Number($('floor').value),high=Number($('ceiling').value);if(high<=low){high=low+1;$('ceiling').value=high;}$('floor-value').textContent=low+' dBFS';$('ceiling-value').textContent=high+' dBFS';$('legend-high').textContent=high;$('legend-low').textContent=low;const stops=[[5,10,32],[24,62,149],[26,169,183],[135,223,135],[255,223,112],[255,244,224]];lut=Array.from({length:256},(_,i)=>{let t=Math.max(0,Math.min(1,(-120+i*120/255-low)/(high-low)))*5;let k=Math.min(4,Math.floor(t)),f=t-k;return stops[k].map((v,c)=>Math.round(v*(1-f)+stops[k+1][c]*f));});render();}
+function pooled(row){const values=new Uint8Array(W);for(let x=0;x<W;x++){const begin=Math.floor(x*fft/W),end=Math.max(begin+1,Math.floor((x+1)*fft/W));let max=0;for(let b=begin;b<Math.min(fft,end);b++)max=Math.max(max,row[b]);values[x]=max;}return values;}
+function render(){
+ bc.fillStyle='#050a12';bc.fillRect(0,0,W,H);
+ if(history.length){const image=bc.createImageData(W,history.length);for(let y=0;y<history.length;y++){const values=pooled(history[history.length-1-y].data);for(let x=0;x<W;x++){const color=lut[values[x]],i=(y*W+x)*4;image.data[i]=color[0];image.data[i+1]=color[1];image.data[i+2]=color[2];image.data[i+3]=255;}}bc.putImageData(image,0,0);}
+ ctx.drawImage(back,0,0);ctx.font='11px monospace';
+ for(let y=0;y<history.length;y+=80){ctx.fillStyle='#09111ddd';ctx.fillRect(0,y,58,18);ctx.fillStyle='#b7cbdc';ctx.fillText(comma(history[history.length-1-y].row/fps)+' с',6,y+12);}
+ sc.fillStyle='#050a12';sc.fillRect(0,0,W,170);sc.font='11px monospace';
+ for(let db=-100;db<=0;db+=20){let y=12-db*1.4;sc.strokeStyle='#1c2c3c';sc.beginPath();sc.moveTo(0,y);sc.lineTo(W,y);sc.stroke();sc.fillStyle='#7c94aa';sc.fillText(db+' dBFS',8,y-3);}
+ for(let x=0;x<=W;x+=W/8){sc.strokeStyle='#142333';sc.beginPath();sc.moveTo(x,0);sc.lineTo(x,170);sc.stroke();}
+ if(history.length){const row=history[history.length-1].data,values=pooled(row);sc.strokeStyle='#65e1c4';sc.lineWidth=1.3;sc.beginPath();for(let x=0;x<W;x++){const y=12-(-120+values[x]*120/255)*1.4;if(x===0)sc.moveTo(x,y);else sc.lineTo(x,y);}sc.stroke();let peak=0;for(let i=1;i<row.length;i++)if(row[i]>row[peak])peak=i;$('peak').textContent='Пик '+mhz(info.frequency_min_hz+peak*info.sample_rate/fft)+' · '+comma(-120+row[peak]*120/255,1)+' dBFS';}
+ $('history').textContent='Новые строки сверху · '+comma(history.length/fps,2)+' с истории';
+}
+async function seekTo(seconds,reset=false){
+ const gen=++generation;busy=true;ready=false;update();$('error').hidden=true;
+ if(reset){chunks=new Map();pending=new Map();}
+ // Discard promises from previous navigation; old responses cannot change this generation.
+ pending=new Map();
+ position=Math.max(0,Math.min(info.duration_seconds,seconds));const row=Math.min(total-1,Math.floor(position*fps));
+ try{const rows=[];for(let r=Math.max(0,row-MAX_HISTORY+1);r<=row;r++){const data=await rowAt(r,gen);if(gen!==generation)return;rows.push({row:r,data});}history=rows;current=row;ready=true;render();}
+ catch(error){if(gen===generation)report(error);}
+ finally{if(gen===generation){busy=false;last=performance.now();update();}}
+}
+async function settings(){fft=Number($('fft').value);fps=Number($('fps').value);total=Math.ceil(info.samples*fps/info.sample_rate);$('resolution').textContent=comma(info.sample_rate/fft,0)+' Гц';await seekTo(position,true);}
+async function tick(now){
+ const elapsed=Math.min((now-last)/1000,.15);last=now;
+ if(playing&&ready&&!busy){
+  const gen=generation,target=Math.min(info.duration_seconds,position+elapsed*Number($('speed').value));
+  const row=Math.min(total-1,Math.floor(target*fps));
+  try{for(let r=current+1;r<=row;r++){const data=await rowAt(r,gen);if(gen!==generation)break;history.push({row:r,data});if(history.length>MAX_HISTORY)history.shift();}
+   if(gen===generation){const changed=row!==current;position=target;current=row;if(changed)render();update();if(position>=info.duration_seconds){if($('loop').checked)await seekTo(0);else{playing=false;update();}}}
+  }catch(error){if(gen===generation)report(error);}
+ }
+ requestAnimationFrame(tick);
+}
+$('play').onclick=async()=>{if(!ready)return;if(position>=info.duration_seconds)await seekTo(0);playing=!playing;last=performance.now();update();};
+$('restart').onclick=async()=>{await seekTo(0,true);};
+// Preserve slider value before update() rewrites it.
+$('seek').oninput=event=>{const value=event.target.value;playing=false;$('play').textContent='▶ Старт';$('clock').textContent=comma(Number(value))+' / '+comma(info.duration_seconds)+' с';};
+$('seek').onchange=event=>seekTo(Number(event.target.value));
+for(const id of ['fft','fps','dc'])$(id).onchange=settings;
+for(const id of ['floor','ceiling'])$(id).oninput=palette;
+water.onmousemove=event=>{if(!info)return;const rect=water.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width,y=Math.floor((event.clientY-rect.top)/rect.height*H);const h=history[history.length-1-y];$('hover').textContent=mhz(info.frequency_min_hz+x*info.sample_rate)+(h?' / '+comma(h.row/fps)+' с':'');};
+async function boot(){try{info=await(await request('/api/info')).json();$('center').textContent=mhz(info.center_frequency_hz);$('bandwidth').textContent=mhz(info.sample_rate);$('duration').textContent=comma(info.duration_seconds)+' с';$('source').textContent=info.device+' · '+info.file+' · '+info.format+' · '+info.started;for(const id of ['spectrum-axis','waterfall-axis']){for(let k=0;k<=4;k++){const span=document.createElement('span');span.textContent=mhz(info.frequency_min_hz+k*info.sample_rate/4);$(id).append(span);}}$('seek').max=info.duration_seconds;await settings();if(!ready)return;for(const id of ['play','restart','seek'])$(id).disabled=false;playing=true;update();last=performance.now();requestAnimationFrame(tick);}catch(error){report(error);}}
+palette();boot();
+
+let lastAnalysis=null, analysisInfo=null;
+const analysisCanvas=$('analysis-map'), ac=analysisCanvas.getContext('2d',{alpha:false});
+analysisCanvas.width=960;analysisCanvas.height=320;
+function decodeBytes(value){return Uint8Array.from(atob(value),c=>c.charCodeAt(0));}
+function renderAnalysis(){
+ if(!lastAnalysis)return;
+ const {result,score,mask}=lastAnalysis, canvas=document.createElement('canvas');canvas.width=result.bins;canvas.height=result.rows;
+ const context=canvas.getContext('2d'),image=context.createImageData(result.bins,result.rows),dim=$('analysis-mask').checked;
+ const stops=[[5,10,24],[22,60,145],[20,179,188],[245,222,105],[255,245,225]];
+ for(let i=0;i<score.length;i++){const t=score[i]/255*4,k=Math.min(3,Math.floor(t)),f=t-k,scale=(dim&&!mask[i])?0.22:1;for(let c=0;c<3;c++)image.data[i*4+c]=Math.round((stops[k][c]*(1-f)+stops[k+1][c]*f)*scale);image.data[i*4+3]=255;}
+ context.putImageData(image,0,0);ac.fillStyle='#050a12';ac.fillRect(0,0,960,320);ac.imageSmoothingEnabled=false;ac.drawImage(canvas,50,0,910,320);
+ if(dim){ac.strokeStyle='#f6edbb';ac.lineWidth=1;for(const r of result.regions){ac.strokeRect(50+r.x0/result.bins*910,r.y0/result.rows*320,(r.x1-r.x0)/result.bins*910,(r.y1-r.y0)/result.rows*320);}}
+ ac.fillStyle='#a6bbcd';ac.font='10px monospace';for(let i=0;i<=4;i++){const t=result.time_start_s+(result.time_end_s-result.time_start_s)*i/4;ac.fillText(comma(t)+' с',3,Math.max(11,Math.min(315,i*80+4)));}
+}
+$('analysis-mask').onchange=renderAnalysis;
+analysisCanvas.onmousemove=event=>{if(!lastAnalysis)return;const r=analysisCanvas.getBoundingClientRect(),x=((event.clientX-r.left)/r.width*960-50)/910,y=(event.clientY-r.top)/r.height;if(x<0||x>=1||y<0||y>=1)return;const {result,score}=lastAnalysis,index=Math.min(result.rows-1,Math.floor(y*result.rows))*result.bins+Math.min(result.bins-1,Math.floor(x*result.bins));$('analysis-hover').textContent=mhz(result.frequency_min_hz+x*(result.frequency_max_hz-result.frequency_min_hz))+' / '+comma(result.time_start_s+y*(result.time_end_s-result.time_start_s))+' с / +'+comma(score[index]*30/255,1)+' дБ';};
+$('analyze').onclick=async()=>{
+ const start=Number($('analysis-start').value),duration=Number($('analysis-duration').value),threshold=Number($('analysis-threshold').value),area=Number($('analysis-area').value);
+ if(!analysisInfo||!Number.isFinite(start)||start<0||start>=analysisInfo.duration_seconds||!Number.isFinite(duration)||duration<.05||duration>12.8||!Number.isFinite(threshold)||threshold<3||threshold>30||!Number.isInteger(area)||area<1||area>1000){$('analysis-error').textContent='Проверьте начало внутри записи, окно 0,05–12,8 с, порог 3–30 дБ и площадь 1–1000.';$('analysis-error').hidden=false;return;}
+ $('analyze').disabled=true;$('analyze').textContent='Анализ…';$('analysis-error').hidden=true;$('analysis-message').textContent='TensorFlow обрабатывает выбранный участок…';
+ try{
+  const params=new URLSearchParams({start:Math.floor(start*20),count:Math.min(256,Math.max(1,Math.ceil(duration*20))),threshold_db:threshold,min_area:area,remove_dc:$('analysis-dc').checked});
+  const response=await fetch('/api/analysis?'+params),result=await response.json();if(!response.ok)throw Error(result.detail?typeof result.detail==='string'?result.detail:JSON.stringify(result.detail):'HTTP '+response.status);
+  const score=decodeBytes(result.score_u8_b64),mask=decodeBytes(result.mask_u8_b64);if(score.length!==result.rows*result.bins||mask.length!==score.length)throw Error('Неверный размер карты');
+  lastAnalysis={result,score,mask};$('analysis-output').hidden=false;$('tf-status').textContent='TensorFlow '+result.version+' · CPU';$('analysis-occupancy').textContent=comma(result.occupied_percent)+' %';$('analysis-regions').textContent=result.region_count;$('analysis-noise').textContent=comma(result.noise_median_dbfs,1)+' dBFS';$('analysis-cell').textContent=comma(result.frequency_step_hz/1000,1)+' кГц × 50 мс';
+  $('analysis-message').textContent='Участок '+comma(result.time_start_s)+'–'+comma(result.time_end_s)+' с · порог '+result.threshold_db+' дБ · минимум '+result.min_area+' ячеек. Цвет: превышение фона от 0 до 30 дБ.';
+  $('analysis-axis').replaceChildren();for(let k=0;k<=4;k++){const span=document.createElement('span');span.textContent=mhz(result.frequency_min_hz+k*(result.frequency_max_hz-result.frequency_min_hz)/4);$('analysis-axis').append(span);}
+  $('analysis-body').replaceChildren();result.regions.forEach((r,i)=>{const tr=document.createElement('tr');const values=[i+1,comma(r.time_start_s)+'–'+comma(r.time_end_s),comma(r.frequency_min_hz/1e6,3)+'–'+comma(r.frequency_max_hz/1e6,3),comma(r.bandwidth_hz/1000,1),comma(r.peak_excess_db,1)];for(const v of values){const td=document.createElement('td');td.textContent=v;tr.append(td);}$('analysis-body').append(tr);});
+  if(result.regions_omitted)$('analysis-message').textContent+=' Показаны 64 крупнейшие области.';
+  if(!result.region_count)$('analysis-message').textContent+=' Областей выше выбранного порога не найдено.';
+  renderAnalysis();
+ }catch(error){$('analysis-error').textContent=error.message;$('analysis-error').hidden=false;$('analysis-message').textContent='Анализ не выполнен. После установки зависимостей перезапустите сервер.';}
+ finally{$('analyze').disabled=false;$('analyze').textContent='Анализировать';}
+};
+async function initAnalysis(){try{const [statusResponse,infoResponse]=await Promise.all([request('/api/analysis/status'),request('/api/info')]),status=await statusResponse.json();analysisInfo=await infoResponse.json();$('analysis-duration').value=Math.max(.05,Math.min(10,analysisInfo.duration_seconds));$('analysis-start').max=Math.max(0,analysisInfo.duration_seconds-.05);$('tf-status').textContent=status.installed?'TensorFlow установлен · готов к загрузке':'TensorFlow не установлен';if(!status.installed)$('analysis-message').textContent='Для 2D-анализа выполните в .venv: python -m pip install -r requirements-tensorflow.txt. Затем перезапустите сервер.';$('analyze').disabled=false;}catch(error){$('tf-status').textContent='Нет связи с API';$('analysis-error').textContent=error.message;$('analysis-error').hidden=false;}}
+initAnalysis();
+</script></body></html>
